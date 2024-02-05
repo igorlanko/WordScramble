@@ -11,12 +11,11 @@ struct ContentView: View {
 	@State private var usedWords = [String]()
 	@State private var rootWord = ""
 	@State private var newWord = ""
+	@State private var score = 0
 	
 	@State private var errorTitle = ""
 	@State private var errorMessage = ""
 	@State private var showingError = false
-	
-		let people = ["Jack", "Mike", "Walter", "Jessie"]
 	
     var body: some View {
 		NavigationStack {
@@ -24,8 +23,6 @@ struct ContentView: View {
 				Section {
 					TextField("Enter your word", text: $newWord)
 						.textInputAutocapitalization(.never)
-				}
-				Section {
 					ForEach(usedWords, id: \.self) { word in
 						HStack {
 							Image(systemName: "\(word.count).circle")
@@ -35,6 +32,17 @@ struct ContentView: View {
 				}
 			}
 			.navigationTitle(rootWord)
+			.toolbar {
+				ToolbarItem(placement: .topBarLeading) {
+					Button("Start over") {
+						startGame()
+					}
+				}
+				ToolbarItem(placement: .topBarTrailing) {
+					Text("Score \(score)")
+					
+				}
+			}
 			.onSubmit(addNewWord)
 			.onAppear(perform: startGame)
 			.alert(errorTitle, isPresented: $showingError) {
@@ -50,6 +58,8 @@ struct ContentView: View {
 			if let startWords = try? String(contentsOf: startWordsURL) {
 				let allWords = startWords.components(separatedBy: "\n")
 				rootWord = allWords.randomElement() ?? "silkworm"
+				usedWords = [] // for restarts
+				
 				return
 			}
 		}
@@ -60,15 +70,26 @@ struct ContentView: View {
 	func addNewWord() {
 		let answer = newWord.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
 		
-		guard answer.count > 0 else { return }
+		guard answer.count >= 2 else {
+			wordError(title: "Too short word", message: "Should be at least 3 letters.")
+			return
+		}
+		
+		guard answer != rootWord else {
+			wordError(title: "Same word", message: "Can't use the same word.")
+			return
+		}
+		
 		guard isOriginal(word: answer) else {
 			wordError(title: "Word is used already", message: "Be more original.")
 			return
 		}
+		
 		guard isPossible(word: answer) else {
 			wordError(title: "Word is not possible", message: "You can't spell that word from \(rootWord).")
 			return
 		}
+		
 		guard isRealWord(word: answer) else {
 			wordError(title: "Word not recognized", message: "You can't just make them up, you know.")
 			return
@@ -76,6 +97,8 @@ struct ContentView: View {
 		
 		withAnimation {
 			usedWords.insert(answer, at: 0)
+			score += 1
+			score += answer.count
 		}
 		
 		newWord = ""
